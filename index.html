@@ -775,4 +775,353 @@
                     switch (entity.type) {
                         case ENTITIES.GOBLIN: color = [100, 200, 100]; break;
                         case ENTITIES.ORC: color = [200, 100, 100]; break;
-                        case ENTITIES.WRAITH: color = [150
+                        case ENTITIES.WRAITH: color = [150, 150, 255]; break;
+                        case ENTITIES.DRAGON: color = [255, 100, 50]; break;
+                        case ENTITIES.POTION: color = [255, 100, 255]; break;
+                        case ENTITIES.GOLD: color = [255, 215, 0]; break;
+                        default: color = [200, 200, 200];
+                    }
+                    
+                    const finalColor = [
+                        Math.min(255, color[0] * 0.3 + light[0] * 0.7),
+                        Math.min(255, color[1] * 0.3 + light[1] * 0.7),
+                        Math.min(255, color[2] * 0.3 + light[2] * 0.7)
+                    ];
+                    
+                    ctx.fillStyle = `rgb(${Math.floor(finalColor[0])},${Math.floor(finalColor[1])},${Math.floor(finalColor[2])})`;
+                    ctx.fillText(entity.type, entity.x * TILE_SIZE, (entity.y + 1) * TILE_SIZE - 2);
+                }
+            }
+            
+            // Render particles
+            for (const particle of game.particles) {
+                ctx.fillStyle = particle.color;
+                ctx.fillText(particle.char, particle.x * TILE_SIZE, (particle.y + 1) * TILE_SIZE - 2);
+            }
+            
+            // Render player
+            const playerLight = lightMap[game.player.y][game.player.x];
+            ctx.fillStyle = `rgb(${Math.floor(255 * 0.3 + playerLight[0] * 0.7)},${Math.floor(255 * 0.3 + playerLight[1] * 0.7)},${Math.floor(255 * 0.3 + playerLight[2] * 0.7)})`;
+            ctx.fillText(ENTITIES.PLAYER, game.player.x * TILE_SIZE, (game.player.y + 1) * TILE_SIZE - 2);
+            
+            // Update UI
+            updateUI();
+        }
+        
+        // Particle system
+        function createParticle(x, y, char, color, duration) {
+            game.particles.push({
+                x, y, char, color, duration,
+                age: 0
+            });
+        }
+        
+        function updateParticles() {
+            game.particles = game.particles.filter(p => {
+                p.age++;
+                return p.age < p.duration;
+            });
+        }
+        
+        // Combat system
+        function combat(attacker, defender) {
+            const damage = 1 + Math.floor(Math.random() * 2);
+            defender.hp -= damage;
+            
+            if (defender === game.player) {
+                addMessage(`The ${attacker.name} hits you for ${damage} damage!`, '#ef4444');
+                createParticle(defender.x, defender.y, '!', '#ff0000', 500);
+            } else {
+                addMessage(`You hit the ${defender.name} for ${damage} damage!`, '#4ade80');
+                createParticle(defender.x, defender.y, '*', '#ffff00', 500);
+            }
+            
+            if (defender.hp <= 0) {
+                if (defender === game.player) {
+                    gameOver();
+                } else {
+                    addMessage(`You defeated the ${defender.name}!`, '#4ade80');
+                    removeEntity(defender);
+                    
+                    // Drop loot
+                    if (Math.random() < 0.3) {
+                        const loot = Math.random() < 0.5 ?
+                            new Entity(defender.x, defender.y, ENTITIES.POTION, 'potion', 1) :
+                            new Entity(defender.x, defender.y, ENTITIES.GOLD, 'gold', 1);
+                        game.entities.push(loot);
+                    }
+                }
+            }
+        }
+        
+        // Chest system
+        function openChest(x, y) {
+            game.map[y][x] = TILES.FLOOR;
+            const r = Math.random();
+            
+            if (r < 0.3) {
+                game.player.torches += 2;
+                addMessage("You found 2 torches!", '#fb923c');
+            } else if (r < 0.6) {
+                game.player.mana = Math.min(game.player.mana + 3, game.player.maxMana);
+                addMessage("You found a mana crystal! (+3 mana)", '#60a5fa');
+            } else {
+                game.player.hp = Math.min(game.player.hp + 5, game.player.maxHp);
+                addMessage("You found a health elixir! (+5 HP)", '#4ade80');
+            }
+            
+            createParticle(x, y, '✨', '#fbbf24', 1000);
+        }
+        
+        // Message system
+        function addMessage(text, color = '#e0e0e0') {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message';
+            msgDiv.style.color = color;
+            msgDiv.textContent = text;
+            
+            const container = document.getElementById('messages');
+            container.appendChild(msgDiv);
+            
+            // Remove old messages
+            while (container.children.length > 5) {
+                container.removeChild(container.firstChild);
+            }
+            
+            // Auto-remove after animation
+            setTimeout(() => {
+                if (msgDiv.parentNode) {
+                    msgDiv.parentNode.removeChild(msgDiv);
+                }
+            }, 3000);
+        }
+        
+        // Helper functions
+        function isInBounds(x, y) {
+            return x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT;
+        }
+        
+        function isValidPosition(x, y) {
+            if (!isInBounds(x, y)) return false;
+            const tile = game.map[y][x];
+            return tile !== TILES.WALL;
+        }
+        
+        function getEntityAt(x, y) {
+            return game.entities.find(e => e.x === x && e.y === y);
+        }
+        
+        function removeEntity(entity) {
+            const index = game.entities.indexOf(entity);
+            if (index > -1) {
+                game.entities.splice(index, 1);
+            }
+        }
+        
+        function updateUI() {
+            document.getElementById('health').textContent = `${game.player.hp}/${game.player.maxHp}`;
+            document.getElementById('mana').textContent = `${game.player.mana}/${game.player.maxMana}`;
+            document.getElementById('level').textContent = game.level;
+            document.getElementById('torches').textContent = game.player.torches;
+        }
+        
+        // Game flow
+        function nextLevel() {
+            game.level++;
+            addMessage(`Descending to level ${game.level}...`, '#fbbf24');
+            
+            // Increase player stats
+            game.player.maxHp += 2;
+            game.player.hp = game.player.maxHp;
+            game.player.maxMana += 1;
+            game.player.mana = game.player.maxMana;
+            game.player.torches += 2;
+            
+            generateMap();
+        }
+        
+        function gameOver() {
+            game.running = false;
+            addMessage("You have been defeated...", '#ef4444');
+            setTimeout(() => {
+                document.getElementById('menu').style.display = 'block';
+                document.querySelector('.menu-btn').textContent = 'Try Again';
+            }, 2000);
+        }
+        
+        // Input handling
+        function handleKeyPress(e) {
+            if (!game.running) return;
+            
+            let dx = 0, dy = 0;
+            let action = false;
+            
+            switch(e.key.toLowerCase()) {
+                case 'w': case 'arrowup': dy = -1; break;
+                case 's': case 'arrowdown': dy = 1; break;
+                case 'a': case 'arrowleft': dx = -1; break;
+                case 'd': case 'arrowright': dx = 1; break;
+                case 'q': dx = -1; dy = -1; break;
+                case 'e': dx = 1; dy = -1; break;
+                case 'z': dx = -1; dy = 1; break;
+                case 'c': dx = 1; dy = 1; break;
+                case 'x': dy = 1; break;
+                case 't':
+                    game.player.placeTorch();
+                    action = true;
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    game.player.castLightning();
+                    action = true;
+                    break;
+            }
+            
+            if (dx !== 0 || dy !== 0) {
+                action = game.player.move(dx, dy);
+            }
+            
+            if (action) {
+                takeTurn();
+            }
+        }
+        
+        function handleClick(e) {
+            if (!game.running) return;
+            
+            const rect = game.canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+            const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+            
+            if (isInBounds(x, y) && game.visible[y][x]) {
+                // Pathfinding to clicked location
+                const path = findPath(game.player.x, game.player.y, x, y);
+                if (path && path.length > 0) {
+                    const next = path[0];
+                    const dx = next.x - game.player.x;
+                    const dy = next.y - game.player.y;
+                    if (game.player.move(dx, dy)) {
+                        takeTurn();
+                    }
+                }
+            }
+        }
+        
+        function findPath(x1, y1, x2, y2) {
+            const visited = new Set();
+            const queue = [{x: x1, y: y1, path: []}];
+            
+            while (queue.length > 0) {
+                const current = queue.shift();
+                const key = `${current.x},${current.y}`;
+                
+                if (visited.has(key)) continue;
+                visited.add(key);
+                
+                if (current.x === x2 && current.y === y2) {
+                    return current.path;
+                }
+                
+                const dirs = [[0,-1], [1,0], [0,1], [-1,0], [-1,-1], [1,-1], [-1,1], [1,1]];
+                for (const [dx, dy] of dirs) {
+                    const nx = current.x + dx;
+                    const ny = current.y + dy;
+                    
+                    if (isValidPosition(nx, ny) && !visited.has(`${nx},${ny}`)) {
+                        queue.push({
+                            x: nx,
+                            y: ny,
+                            path: [...current.path, {x: nx, y: ny}]
+                        });
+                    }
+                }
+            }
+            
+            return null;
+        }
+        
+        function takeTurn() {
+            game.turn++;
+            
+            // Update entities
+            for (const entity of game.entities) {
+                entity.update();
+            }
+            
+            // Update particles
+            updateParticles();
+            
+            // Regenerate mana
+            if (game.turn % 10 === 0 && game.player.mana < game.player.maxMana) {
+                game.player.mana++;
+            }
+            
+            // Render
+            render();
+        }
+        
+        // Mobile controls
+        function setupMobileControls() {
+            const buttons = document.querySelectorAll('.control-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const key = btn.dataset.key;
+                    handleKeyPress({ key, preventDefault: () => {} });
+                });
+            });
+        }
+        
+        // Initialize game
+        function init() {
+            game.canvas = document.getElementById('canvas');
+            game.ctx = game.canvas.getContext('2d');
+            
+            // Set canvas size
+            game.canvas.width = MAP_WIDTH * TILE_SIZE;
+            game.canvas.height = MAP_HEIGHT * TILE_SIZE;
+            
+            // Setup event listeners
+            document.addEventListener('keydown', handleKeyPress);
+            game.canvas.addEventListener('click', handleClick);
+            
+            // Mobile support
+            game.canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('click', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                game.canvas.dispatchEvent(mouseEvent);
+            });
+            
+            setupMobileControls();
+            
+            // Generate first level
+            generateMap();
+            render();
+        }
+        
+        function startGame() {
+            document.getElementById('menu').style.display = 'none';
+            game.running = true;
+            game.level = 1;
+            init();
+            addMessage("Welcome to the Lumen Caverns!", '#fbbf24');
+            addMessage("Bring light to the darkness...", '#60a5fa');
+        }
+        
+        // Animation loop
+        function animate() {
+            if (game.running) {
+                render();
+            }
+            requestAnimationFrame(animate);
+        }
+        
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lumen Caverns</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Fira Code', monospace;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #canvas {
+            image-rendering: pixelated;
+            cursor: crosshair;
+            max-width: 100vw;
+            max-height: 80vh;
+        }
+        
+        #ui {
+            display: flex;
+            gap: 20px;
+            padding: 10px;
+            font-size: 14px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 100vw;
+        }
+        
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .health { color: #ff6b6b; }
+        .mana { color: #4dabf7; }
+        .level { color: #ffd43b; }
+        .torches { color: #ff922b; }
+        
+        #messages {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            max-width: 80vw;
+        }
+        
+        .message {
+            padding: 5px 10px;
+            margin: 2px;
+            background: rgba(0,0,0,0.8);
+            border-radius: 3px;
+            animation: fadeOut 3s forwards;
+        }
+        
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: none;
+            gap: 5px;
+            flex-wrap: wrap;
+            max-width: 200px;
+        }
+        
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 5px;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .control-btn:active {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        #menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #333;
+        }
+        
+        #menu h1 {
+            color: #ffd43b;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255,215,0,0.5);
+        }
+        
+        .menu-btn {
+            display: block;
+            width: 200px;
+            padding: 10px;
+            margin: 10px auto;
+            background: #1a1a1a;
+            border: 2px solid #444;
+            color: #e0e0e0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .menu-btn:hover {
+            background: #2a2a2a;
+            border-color: #666;
+            transform: scale(1.05);
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #999;
+            line-height: 1.6;
+        }
+        
+        @media (max-width: 768px) {
+            #controls { display: flex; }
+            #ui { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="canvas"></canvas>
+        <div id="ui">
+            <div class="stat health">❤️ <span id="health">10/10</span></div>
+            <div class="stat mana">💎 <span id="mana">5/5</span></div>
+            <div class="stat level">📊 Level <span id="level">1</span></div>
+            <div class="stat torches">🔦 <span id="torches">3</span></div>
+        </div>
+        <div id="messages"></div>
+        <div id="controls">
+            <div class="control-btn" data-key="q">↖</div>
+            <div class="control-btn" data-key="w">↑</div>
+            <div class="control-btn" data-key="e">↗</div>
+            <div class="control-btn" data-key="a">←</div>
+            <div class="control-btn" data-key="s">⚡</div>
+            <div class="control-btn" data-key="d">→</div>
+            <div class="control-btn" data-key="z">↙</div>
+            <div class="control-btn" data-key="x">↓</div>
+            <div class="control-btn" data-key="c">↘</div>
+            <div class="control-btn" data-key="t">🔦</div>
+        </div>
+    </div>
+    
+    <div id="menu">
+        <h1>Lumen Caverns</h1>
+        <button class="menu-btn" onclick="startGame()">Begin Journey</button>
+        <div class="instructions">
+            <strong>Controls:</strong><br>
+            WASD/QEZXC/Arrows - Move<br>
+            T - Place Torch<br>
+            Space - Cast Lightning<br>
+            Click/Tap - Move to location<br><br>
+            <em>Descend through the caverns,<br>
+            bringing light to the darkness...</em>
+        </div>
+    </div>
+
+    <script>
+        // Game constants
+        const TILE_SIZE = 16;
+        const MAP_WIDTH = 60;
+        const MAP_HEIGHT = 35;
+        const FOV_RADIUS = 8;
+        const MAX_LIGHT_RADIUS = 12;
+        
+        // Tile types
+        const TILES = {
+            FLOOR: 0,
+            WALL: 1,
+            DOOR: 2,
+            STAIRS_DOWN: 3,
+            WATER: 4,
+            CRYSTAL: 5,
+            TORCH: 6,
+            CHEST: 7,
+            TRAP: 8
+        };
+        
+        // Entity types
+        const ENTITIES = {
+            PLAYER: '@',
+            GOBLIN: 'g',
+            ORC: 'o',
+            WRAITH: 'w',
+            DRAGON: 'D',
+            POTION: '!',
+            GOLD: '$',
+            SCROLL: '?'
+        };
+        
+        // Game state
+        let game = {
+            canvas: null,
+            ctx: null,
+            player: null,
+            level: 1,
+            map: [],
+            visible: [],
+            explored: [],
+            lights: [],
+            entities: [],
+            particles: [],
+            messages: [],
+            running: false,
+            turn: 0
+        };
+        
+        // Player class
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.hp = 10;
+                this.maxHp = 10;
+                this.mana = 5;
+                this.maxMana = 5;
+                this.torches = 3;
+                this.gold = 0;
+                this.lightRadius = 3;
+                this.lightColor = [255, 220, 180];
+            }
+            
+            move(dx, dy) {
+                const nx = this.x + dx;
+                const ny = this.y + dy;
+                
+                if (!isValidPosition(nx, ny)) return false;
+                
+                // Check for entities
+                const entity = getEntityAt(nx, ny);
+                if (entity) {
+                    if (entity.hostile) {
+                        combat(this, entity);
+                        return true;
+                    } else if (entity.type === ENTITIES.POTION) {
+                        this.hp = Math.min(this.hp + 5, this.maxHp);
+                        addMessage("You drink the healing potion (+5 HP)", '#4ade80');
+                        removeEntity(entity);
+                    } else if (entity.type === ENTITIES.GOLD) {
+                        this.gold += Math.floor(Math.random() * 20) + 10;
+                        addMessage(`You collect gold (+${this.gold} gold)`, '#fbbf24');
+                        removeEntity(entity);
+                    }
+                }
+                
+                // Check for special tiles
+                const tile = game.map[ny][nx];
+                if (tile === TILES.STAIRS_DOWN) {
+                    nextLevel();
+                    return true;
+                } else if (tile === TILES.CHEST) {
+                    openChest(nx, ny);
+                } else if (tile === TILES.TRAP && !game.explored[ny][nx]) {
+                    this.hp -= 2;
+                    addMessage("You triggered a trap! (-2 HP)", '#ef4444');
+                    createParticle(nx, ny, '!', '#ef4444', 1000);
+                }
+                
+                this.x = nx;
+                this.y = ny;
+                return true;
+            }
+            
+            placeTorch() {
+                if (this.torches <= 0) {
+                    addMessage("No torches left!", '#ef4444');
+                    return;
+                }
+                
+                if (game.map[this.y][this.x] !== TILES.FLOOR) {
+                    addMessage("Cannot place torch here", '#ef4444');
+                    return;
+                }
+                
+                game.map[this.y][this.x] = TILES.TORCH;
+                this.torches--;
+                addLight(this.x, this.y, 6, [255, 150, 50]);
+                addMessage("Torch placed", '#fb923c');
+            }
+            
+            castLightning() {
+                if (this.mana < 2) {
+                    addMessage("Not enough mana!", '#ef4444');
+                    return;
+                }
+                
+                this.mana -= 2;
+                
+                // Create lightning effect
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    const dx = Math.cos(angle);
+                    const dy = Math.sin(angle);
+                    
+                    for (let d = 1; d <= 5; d++) {
+                        const lx = Math.round(this.x + dx * d);
+                        const ly = Math.round(this.y + dy * d);
+                        
+                        if (!isInBounds(lx, ly)) break;
+                        if (game.map[ly][lx] === TILES.WALL) break;
+                        
+                        createParticle(lx, ly, '⚡', '#60a5fa', 500);
+                        
+                        const entity = getEntityAt(lx, ly);
+                        if (entity && entity.hostile) {
+                            entity.hp -= 3;
+                            if (entity.hp <= 0) {
+                                addMessage(`Lightning strikes the ${entity.name}!`, '#60a5fa');
+                                removeEntity(entity);
+                            }
+                        }
+                    }
+                }
+                
+                // Flash effect
+                addLight(this.x, this.y, 8, [150, 180, 255], 300);
+                addMessage("Lightning spell cast!", '#60a5fa');
+            }
+        }
+        
+        // Entity class
+        class Entity {
+            constructor(x, y, type, name, hp, hostile = false) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.name = name;
+                this.hp = hp;
+                this.maxHp = hp;
+                this.hostile = hostile;
+                this.lightRadius = 0;
+                this.lightColor = [255, 255, 255];
+                
+                // Special properties for different enemies
+                if (type === ENTITIES.WRAITH) {
+                    this.lightRadius = 4;
+                    this.lightColor = [100, 150, 255];
+                } else if (type === ENTITIES.DRAGON) {
+                    this.lightRadius = 6;
+                    this.lightColor = [255, 100, 50];
+                }
+            }
+            
+            update() {
+                if (!this.hostile) return;
+                
+                // Simple AI - move towards player if visible
+                const dx = game.player.x - this.x;
+                const dy = game.player.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist <= 1) {
+                    combat(this, game.player);
+                } else if (dist <= 6 && game.visible[this.y][this.x]) {
+                    const mx = Math.sign(dx);
+                    const my = Math.sign(dy);
+                    
+                    if (isValidPosition(this.x + mx, this.y + my) && 
+                        !getEntityAt(this.x + mx, this.y + my)) {
+                        this.x += mx;
+                        this.y += my;
+                    } else if (isValidPosition(this.x + mx, this.y) && 
+                               !getEntityAt(this.x + mx, this.y)) {
+                        this.x += mx;
+                    } else if (isValidPosition(this.x, this.y + my) && 
+                               !getEntityAt(this.x, this.y + my)) {
+                        this.y += my;
+                    }
+                }
+            }
+        }
+        
+        // Map generation
+        function generateMap() {
+            // Initialize map
+            game.map = Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(TILES.WALL));
+            game.visible = Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false));
+            game.explored = Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false));
+            game.lights = [];
+            game.entities = [];
+            game.particles = [];
+            
+            // Generate rooms
+            const rooms = [];
+            const numRooms = 8 + Math.floor(Math.random() * 5);
+            
+            for (let i = 0; i < numRooms; i++) {
+                const w = 5 + Math.floor(Math.random() * 8);
+                const h = 5 + Math.floor(Math.random() * 8);
+                const x = 1 + Math.floor(Math.random() * (MAP_WIDTH - w - 2));
+                const y = 1 + Math.floor(Math.random() * (MAP_HEIGHT - h - 2));
+                
+                const room = { x, y, w, h, cx: x + Math.floor(w/2), cy: y + Math.floor(h/2) };
+                
+                // Check overlap
+                let overlaps = false;
+                for (const other of rooms) {
+                    if (x < other.x + other.w && x + w > other.x &&
+                        y < other.y + other.h && y + h > other.y) {
+                        overlaps = true;
+                        break;
+                    }
+                }
+                
+                if (!overlaps) {
+                    rooms.push(room);
+                    carveRoom(room);
+                }
+            }
+            
+            // Connect rooms
+            for (let i = 1; i < rooms.length; i++) {
+                connectRooms(rooms[i-1], rooms[i]);
+            }
+            
+            // Place player in first room
+            game.player = new Player(rooms[0].cx, rooms[0].cy);
+            
+            // Place stairs in last room
+            game.map[rooms[rooms.length-1].cy][rooms[rooms.length-1].cx] = TILES.STAIRS_DOWN;
+            
+            // Add features
+            for (const room of rooms) {
+                // Crystals (light sources)
+                if (Math.random() < 0.3) {
+                    const cx = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
+                    const cy = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
+                    if (game.map[cy][cx] === TILES.FLOOR) {
+                        game.map[cy][cx] = TILES.CRYSTAL;
+                        addLight(cx, cy, 5, [100, 200, 255]);
+                    }
+                }
+                
+                // Water pools
+                if (Math.random() < 0.2) {
+                    const px = room.x + 2 + Math.floor(Math.random() * (room.w - 4));
+                    const py = room.y + 2 + Math.floor(Math.random() * (room.h - 4));
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            if (game.map[py+dy][px+dx] === TILES.FLOOR) {
+                                game.map[py+dy][px+dx] = TILES.WATER;
+                            }
+                        }
+                    }
+                }
+                
+                // Chests
+                if (Math.random() < 0.3) {
+                    const cx = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
+                    const cy = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
+                    if (game.map[cy][cx] === TILES.FLOOR) {
+                        game.map[cy][cx] = TILES.CHEST;
+                    }
+                }
+                
+                // Traps
+                if (Math.random() < 0.2) {
+                    const tx = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
+                    const ty = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
+                    if (game.map[ty][tx] === TILES.FLOOR) {
+                        game.map[ty][tx] = TILES.TRAP;
+                    }
+                }
+                
+                // Enemies
+                const numEnemies = Math.floor(Math.random() * 3);
+                for (let e = 0; e < numEnemies; e++) {
+                    const ex = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
+                    const ey = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
+                    if (game.map[ey][ex] === TILES.FLOOR && !getEntityAt(ex, ey)) {
+                        let enemy;
+                        const r = Math.random();
+                        if (game.level >= 3 && r < 0.1) {
+                            enemy = new Entity(ex, ey, ENTITIES.DRAGON, 'dragon', 15, true);
+                        } else if (game.level >= 2 && r < 0.3) {
+                            enemy = new Entity(ex, ey, ENTITIES.WRAITH, 'wraith', 6, true);
+                        } else if (r < 0.6) {
+                            enemy = new Entity(ex, ey, ENTITIES.ORC, 'orc', 5, true);
+                        } else {
+                            enemy = new Entity(ex, ey, ENTITIES.GOBLIN, 'goblin', 3, true);
+                        }
+                        game.entities.push(enemy);
+                    }
+                }
+                
+                // Items
+                if (Math.random() < 0.4) {
+                    const ix = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
+                    const iy = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
+                    if (game.map[iy][ix] === TILES.FLOOR && !getEntityAt(ix, iy)) {
+                        const item = Math.random() < 0.6 ? 
+                            new Entity(ix, iy, ENTITIES.POTION, 'potion', 1) :
+                            new Entity(ix, iy, ENTITIES.GOLD, 'gold', 1);
+                        game.entities.push(item);
+                    }
+                }
+            }
+        }
+        
+        function carveRoom(room) {
+            for (let y = room.y; y < room.y + room.h; y++) {
+                for (let x = room.x; x < room.x + room.w; x++) {
+                    game.map[y][x] = TILES.FLOOR;
+                }
+            }
+        }
+        
+        function connectRooms(r1, r2) {
+            let x = r1.cx;
+            let y = r1.cy;
+            
+            while (x !== r2.cx) {
+                x += Math.sign(r2.cx - x);
+                game.map[y][x] = TILES.FLOOR;
+            }
+            
+            while (y !== r2.cy) {
+                y += Math.sign(r2.cy - y);
+                game.map[y][x] = TILES.FLOOR;
+            }
+        }
+        
+        // Lighting system
+        function addLight(x, y, radius, color, duration = -1) {
+            game.lights.push({ x, y, radius, color, duration, age: 0 });
+        }
+        
+        function updateLights() {
+            // Update temporary lights
+            game.lights = game.lights.filter(light => {
+                if (light.duration > 0) {
+                    light.age++;
+                    return light.age < light.duration;
+                }
+                return true;
+            });
+            
+            // Clear and rebuild light map
+            const lightMap = Array(MAP_HEIGHT).fill().map(() => 
+                Array(MAP_WIDTH).fill().map(() => [0, 0, 0]));
+            
+            // Add all light sources
+            const allLights = [...game.lights];
+            
+            // Player light
+            allLights.push({
+                x: game.player.x,
+                y: game.player.y,
+                radius: game.player.lightRadius,
+                color: game.player.lightColor
+            });
+            
+            // Entity lights
+            for (const entity of game.entities) {
+                if (entity.lightRadius > 0) {
+                    allLights.push({
+                        x: entity.x,
+                        y: entity.y,
+                        radius: entity.lightRadius,
+                        color: entity.lightColor
+                    });
+                }
+            }
+            
+            // Calculate light propagation
+            for (const light of allLights) {
+                for (let dy = -light.radius; dy <= light.radius; dy++) {
+                    for (let dx = -light.radius; dx <= light.radius; dx++) {
+                        const lx = light.x + dx;
+                        const ly = light.y + dy;
+                        
+                        if (!isInBounds(lx, ly)) continue;
+                        
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist > light.radius) continue;
+                        
+                        // Check line of sight
+                        if (hasLineOfSight(light.x, light.y, lx, ly)) {
+                            const intensity = 1 - (dist / light.radius);
+                            const fadeIntensity = light.age && light.duration ? 
+                                intensity * (1 - light.age / light.duration) : intensity;
+                            
+                            for (let i = 0; i < 3; i++) {
+                                lightMap[ly][lx][i] = Math.min(255, 
+                                    lightMap[ly][lx][i] + light.color[i] * fadeIntensity);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return lightMap;
+        }
+        
+        // FOV calculation
+        function calculateFOV() {
+            // Reset visibility
+            game.visible = Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false));
+            
+            // Cast rays in all directions
+            for (let angle = 0; angle < 360; angle += 1) {
+                const rad = angle * Math.PI / 180;
+                const dx = Math.cos(rad);
+                const dy = Math.sin(rad);
+                
+                for (let dist = 0; dist < FOV_RADIUS; dist++) {
+                    const x = Math.round(game.player.x + dx * dist);
+                    const y = Math.round(game.player.y + dy * dist);
+                    
+                    if (!isInBounds(x, y)) break;
+                    
+                    game.visible[y][x] = true;
+                    game.explored[y][x] = true;
+                    
+                    if (game.map[y][x] === TILES.WALL) break;
+                }
+            }
+        }
+        
+        function hasLineOfSight(x1, y1, x2, y2) {
+            const dx = Math.abs(x2 - x1);
+            const dy = Math.abs(y2 - y1);
+            const sx = x1 < x2 ? 1 : -1;
+            const sy = y1 < y2 ? 1 : -1;
+            let err = dx - dy;
+            
+            while (x1 !== x2 || y1 !== y2) {
+                if (!isInBounds(x1, y1)) return false;
+                if (game.map[y1][x1] === TILES.WALL) return false;
+                
+                const e2 = 2 * err;
+                if (e2 > -dy) {
+                    err -= dy;
+                    x1 += sx;
+                }
+                if (e2 < dx) {
+                    err += dx;
+                    y1 += sy;
+                }
+            }
+            
+            return true;
+        }
+        
+        // Rendering
+        function render() {
+            const ctx = game.ctx;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+            
+            const lightMap = updateLights();
+            calculateFOV();
+            
+            // Render map
+            for (let y = 0; y < MAP_HEIGHT; y++) {
+                for (let x = 0; x < MAP_WIDTH; x++) {
+                    const tile = game.map[y][x];
+                    const light = lightMap[y][x];
+                    const visible = game.visible[y][x];
+                    const explored = game.explored[y][x];
+                    
+                    if (!explored) continue;
+                    
+                    let char = ' ';
+                    let baseColor = [100, 100, 100];
+                    
+                    switch (tile) {
+                        case TILES.FLOOR:
+                            char = '.';
+                            baseColor = [80, 80, 80];
+                            break;
+                        case TILES.WALL:
+                            char = '#';
+                            baseColor = [150, 150, 150];
+                            break;
+                        case TILES.WATER:
+                            char = '~';
+                            baseColor = [50, 100, 200];
+                            break;
+                        case TILES.CRYSTAL:
+                            char = '◆';
+                            baseColor = [100, 200, 255];
+                            break;
+                        case TILES.TORCH:
+                            char = '†';
+                            baseColor = [255, 150, 50];
+                            break;
+                        case TILES.STAIRS_DOWN:
+                            char = '>';
+                            baseColor = [255, 255, 100];
+                            break;
+                        case TILES.CHEST:
+                            char = '▫';
+                            baseColor = [200, 150, 100];
+                            break;
+                        case TILES.TRAP:
+                            char = explored ? '^' : '.';
+                            baseColor = explored ? [200, 50, 50] : [80, 80, 80];
+                            break;
+                    }
+                    
+                    // Apply lighting
+                    let finalColor;
+                    if (visible) {
+                        finalColor = [
+                            Math.min(255, baseColor[0] * 0.3 + light[0] * 0.7),
+                            Math.min(255, baseColor[1] * 0.3 + light[1] * 0.7),
+                            Math.min(255, baseColor[2] * 0.3 + light[2] * 0.7)
+                        ];
+                    } else {
+                        finalColor = [
+                            baseColor[0] * 0.2,
+                            baseColor[1] * 0.2,
+                            baseColor[2] * 0.2
+                        ];
+                    }
+                    
+                    ctx.fillStyle = `rgb(${Math.floor(finalColor[0])},${Math.floor(finalColor[1])},${Math.floor(finalColor[2])})`;
+                    ctx.font = `${TILE_SIZE}px 'Fira Code'`;
+                    ctx.fillText(char, x * TILE_SIZE, (y + 1) * TILE_SIZE - 2);
+                }
+            }
+            
+            // Render entities
+            for (const entity of game.entities) {
+                if (game.visible[entity.y][entity.x]) {
+                    const light = lightMap[entity.y][entity.x];
+                    let color;
+                    
+                    switch (entity.type) {
+                        case ENTITIES.GOBLIN: color = [100, 200, 100]; break;
+                        case ENTITIES.ORC: color = [200, 100, 100]; break;
+                        case ENTITIES.WRAITH: color = [150
